@@ -7,9 +7,21 @@ from cabinet import (DRAWER, ITEM_TYPES, ROD, SHELF, build_panels, cut_list, def
 from view3d import figure
 
 st.set_page_config(page_title="תכנון ארון", layout="wide")
-st.markdown("<style>.stApp, [data-testid='stSidebar'] {direction: rtl; text-align: right;}</style>",
+st.markdown("""<style>
+.stApp, [data-testid='stSidebar'] {direction: rtl; text-align: right;}
+.hero {background: linear-gradient(135deg, #5d3a1a 0%, #a8743c 55%, #d9a566 100%); color: #fff;
+       padding: 1.6rem 2rem; border-radius: 16px; margin-bottom: 1.2rem;
+       box-shadow: 0 4px 14px rgba(93, 58, 26, .35);}
+.hero h1 {margin: 0; padding: 0; font-size: 2.2rem; color: #fff;}
+.hero p {margin: .4rem 0 0; font-size: 1.05rem; opacity: .92;}
+[data-testid='stMetric'] {background: rgba(168, 116, 60, .08); border: 1px solid rgba(168, 116, 60, .35);
+       border-radius: 12px; padding: .8rem 1rem; box-shadow: 0 2px 6px rgba(0, 0, 0, .08);}
+.stTabs [data-baseweb='tab-list'] {gap: 1.2rem; margin-bottom: .6rem;}
+[data-testid='stSidebar'] h2, [data-testid='stSidebar'] h3 {margin-top: 1.2rem; padding-bottom: .3rem;
+       border-bottom: 2px solid rgba(168, 116, 60, .5);}
+</style>
+<div class="hero"><h1>🪚 תכנון ארון</h1><p>עיצוב ארון בעמודות ומדפים, תצוגה תלת־ממדית, רשימת חיתוך והערכת מחיר</p></div>""",
             unsafe_allow_html=True)
-st.title("🪚 תכנון ארון")
 
 COL, TYPE, Z, HEIGHT = "עמודה", "סוג", "גובה מהרצפה (מ\"מ)", "גובה רכיב (מ\"מ)"
 
@@ -72,6 +84,13 @@ except ValueError as e:
     right.error(str(e))
     st.stop()
 
+pr = price(panels, p_board, p_back, p_rail, p_hinge)
+s1, s2, s3, s4 = st.columns(4)
+s1.metric("מידות (מ\"מ)", f"{W:.0f}×{H:.0f}×{D:.0f}")
+s2.metric("לוחות", len(panels))
+s3.metric("עמודות", int(n_cols))
+s4.metric("מחיר כולל", f"₪{pr['total']:,.0f}")
+
 with right:
     tab3d, tabcut = st.tabs(["תלת־ממד", "רשימת חיתוך ומחיר"])
     with tab3d:
@@ -82,7 +101,6 @@ with right:
         st.dataframe(cl, use_container_width=True, hide_index=True)
         st.download_button("הורד CSV", cl.to_csv(index=False).encode("utf-8-sig"),
                            "cut_list.csv", "text/csv")
-        pr = price(panels, p_board, p_back, p_rail, p_hinge)
         m1, m2, m3 = st.columns(3)
         m1.metric("חומר", f"₪{pr['material']:,.0f}", f"{pr['board_m2']:.2f} מ\"ר לוח, {pr['back_m2']:.2f} מ\"ר גב",
                   delta_color="off")
