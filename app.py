@@ -4,7 +4,7 @@ import streamlit as st
 
 from cabinet import (DRAWER, ITEM_TYPES, ROD, SHELF, build_panels, cut_list, default_col_widths,
                      even_shelves, price)
-from view3d import figure
+from view3d import FINISHES, figure
 
 st.set_page_config(page_title="תכנון ארון", layout="wide")
 st.markdown("<style>.stApp, [data-testid='stSidebar'] {direction: rtl; text-align: right;}</style>",
@@ -26,6 +26,8 @@ with st.sidebar:
     p_back = st.number_input("גב למ\"ר", 0.0, value=40.0)
     p_rail = st.number_input("זוג מסילות למגירה", 0.0, value=60.0)
     p_hinge = st.number_input("צירים לדלת", 0.0, value=30.0)
+    st.header("גימור")
+    finish = st.selectbox("צבע ארון", list(FINISHES))
 
 if "items" not in st.session_state:
     st.session_state["items"] = pd.DataFrame(
@@ -76,7 +78,8 @@ with right:
     tab3d, tabcut = st.tabs(["תלת־ממד", "רשימת חיתוך ומחיר"])
     with tab3d:
         show_doors = st.toggle("הצג דלתות וחזיתות", True)
-        st.plotly_chart(figure(panels, show_doors), use_container_width=True)
+        st.caption("גרור כדי לסובב את הארון, גלגלת או צביטה להתקרבות")
+        st.plotly_chart(figure(panels, show_doors, finish), use_container_width=True)
     with tabcut:
         cl = cut_list(panels)
         st.dataframe(cl, use_container_width=True, hide_index=True)
