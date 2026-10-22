@@ -1,7 +1,10 @@
+import re
+
 import pytest
 
 from cabinet import (DOOR, DRAWER, ROD, SHELF, build_panels, cut_list, default_col_widths,
                      even_shelves, price)
+import view3d
 
 W, H, D, T, B = 1000, 2000, 600, 18, 8
 
@@ -72,3 +75,14 @@ def test_even_shelves_equal_gaps():
     edges = [T] + [e for z in zs for e in (z, z + T)] + [H - T]
     gaps = [edges[i + 1] - edges[i] for i in range(0, len(edges), 2)]
     assert gaps == pytest.approx([gaps[0]] * 4)
+
+
+def test_view3d_colors_cover_all_panel_kinds():
+    panels = build(2, [
+        {"col": 1, "type": SHELF, "z": 500, "height": None},
+        {"col": 1, "type": DRAWER, "z": 100, "height": 200},
+        {"col": 2, "type": DOOR, "z": T, "height": H - 2 * T},
+        {"col": 2, "type": ROD, "z": 1500, "height": None},
+    ])
+    assert {p.kind for p in panels} <= set(view3d.COLORS)
+    assert all(re.fullmatch(r"#[0-9a-fA-F]{6}", c) for c in view3d.COLORS.values())
