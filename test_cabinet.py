@@ -1,6 +1,6 @@
 import pytest
 
-from cabinet import (DOOR, DRAWER, ROD, SHELF, build_panels, cut_list, default_col_widths,
+from cabinet import (DOOR, DOOR_MATERIALS, DRAWER, ROD, SHELF, build_panels, cut_list, default_col_widths,
                      even_shelves, price)
 
 W, H, D, T, B = 1000, 2000, 600, 18, 8
@@ -48,8 +48,34 @@ def test_price():
     panels = build(items=[{"col": 1, "type": DOOR, "z": T, "height": H - 2 * T}])
     r = price(panels, price_m2_board=100, price_m2_back=10, drawer_rail=0, hinge_per_door=30)
     assert r["back_m2"] == pytest.approx(W * H / 1e6)
-    assert r["hardware"] == 30
-    assert r["total"] == pytest.approx(r["board_m2"] * 100 + r["back_m2"] * 10 + 30)
+    assert r["hardware"] == 30 and r["doors"] == DOOR_MATERIALS[0]["price"]
+    assert r["total"] == pytest.approx(r["board_m2"] * 100 + r["back_m2"] * 10 + 30 + r["doors"])
+
+
+def door(mat=None):
+    return {"col": 1, "type": DOOR, "z": T, "height": 500, "door_material": mat}
+
+
+def test_door_default_material():
+    d = next(p for p in build(items=[door()]) if p.kind == "door")
+    assert d.finish == DOOR_MATERIALS[0]["name"] and d.material == "door"
+
+
+def test_unknown_door_material_raises():
+    with pytest.raises(ValueError):
+        build(items=[door("לא קיים")])
+
+
+def test_glass_door_cut_list_and_price():
+    panels = build(items=[door("זכוכית שקופה"), door("אלון")])
+    cl = cut_list(panels)
+    doors = cl[cl["שם"] == "דלת"]
+    assert len(doors) == 2 and set(doors["חומר"]) == {"זכוכית שקופה", "אלון"}
+    assert next(p for p in panels if p.finish == "זכוכית שקופה").material == "glass"
+    r = price(panels, 100, 10, 0, hinge_per_door=30, hinge_per_glass_door=60)
+    assert r["doors"] == 450 + 350 and r["hardware"] == 90
+    no_door = price(build(), 100, 10, 0, 30)
+    assert r["board_m2"] == pytest.approx(no_door["board_m2"])
 
 
 @pytest.mark.parametrize("item", [
