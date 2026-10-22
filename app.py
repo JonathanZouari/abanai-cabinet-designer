@@ -7,11 +7,15 @@ from cabinet import (DRAWER, ITEM_TYPES, ROD, SHELF, build_panels, cut_list, def
 from view3d import figure
 
 st.set_page_config(page_title="תכנון ארון", layout="wide")
-st.markdown("<style>.stApp, [data-testid='stSidebar'] {direction: rtl; text-align: right;}</style>",
+st.markdown("<style>.stApp, [data-testid='stSidebar'] {direction: rtl; text-align: right;}"
+            ".stApp {background-color: #ADD8E6;}</style>",
             unsafe_allow_html=True)
 st.title("🪚 תכנון ארון")
 
-COL, TYPE, Z, HEIGHT = "עמודה", "סוג", "גובה מהרצפה (מ\"מ)", "גובה רכיב (מ\"מ)"
+FINISHES = {"אלון": "#c8a27a", "אגוז": "#6f4e37", "לבן": "#f2f2f2", "שחור": "#2b2b2b",
+            "אפור": "#8a8d91", "ירוק זית": "#6b7b4c", "כחול נייבי": "#2f4a6d", "דובדבן": "#8c3b3b"}
+
+COL, TYPE, Z, HEIGHT ="עמודה", "סוג", "גובה מהרצפה (מ\"מ)", "גובה רכיב (מ\"מ)"
 
 with st.sidebar:
     st.header("מידות (מ\"מ)")
@@ -76,7 +80,8 @@ with right:
     tab3d, tabcut = st.tabs(["תלת־ממד", "רשימת חיתוך ומחיר"])
     with tab3d:
         show_doors = st.toggle("הצג דלתות וחזיתות", True)
-        st.plotly_chart(figure(panels, show_doors), use_container_width=True)
+        st.plotly_chart(figure(panels, show_doors, FINISHES.get(st.session_state.get("finish"))),
+                        use_container_width=True)
     with tabcut:
         cl = cut_list(panels)
         st.dataframe(cl, use_container_width=True, hide_index=True)
@@ -88,3 +93,11 @@ with right:
                   delta_color="off")
         m2.metric("פרזול", f"₪{pr['hardware']:,.0f}")
         m3.metric("סה\"כ", f"₪{pr['total']:,.0f}")
+
+st.subheader("צבעי ארון לבחירה")
+swatches = "".join(
+    f"<div style='display:inline-block;margin:0 0 8px 12px;text-align:center'>"
+    f"<div style='width:70px;height:70px;border-radius:8px;border:2px solid #555;background:{c}'></div>"
+    f"<div>{name}</div></div>" for name, c in FINISHES.items())
+st.markdown(swatches, unsafe_allow_html=True)
+st.radio("בחר צבע", list(FINISHES), key="finish", horizontal=True)
