@@ -2,8 +2,7 @@
 import pandas as pd
 import streamlit as st
 
-from cabinet import (DRAWER, ITEM_TYPES, ROD, SHELF, build_panels, cut_list, default_col_widths,
-                     even_shelves, price)
+from cabinet import (DRAWER, ITEM_TYPES, ROD, SHELF, build_panels, cut_list, even_shelves, price, resolve_col_widths)
 from view3d import figure
 
 st.set_page_config(page_title="תכנון ארון", layout="wide")
@@ -11,7 +10,8 @@ st.markdown("<style>.stApp, [data-testid='stSidebar'] {direction: rtl; text-alig
             unsafe_allow_html=True)
 st.title("🪚 תכנון ארון")
 
-COL, TYPE, Z, HEIGHT = "עמודה", "סוג", "גובה מהרצפה (מ\"מ)", "גובה רכיב (מ\"מ)"
+COL_WIDTH = "רוחב עמודה"
+COL, TYPE, Z, HEIGHT, WIDTH = "עמודה", "סוג", "גובה מהרצפה (מ\"מ)", "גובה רכיב (מ\"מ)", "רוחב (מ\"מ)"
 
 with st.sidebar:
     st.header("מידות (מ\"מ)")
@@ -29,45 +29,44 @@ with st.sidebar:
 
 if "items" not in st.session_state:
     st.session_state["items"] = pd.DataFrame(
-        [[1, ROD, 1700, None], *[[2, SHELF, z, None] for z in even_shelves(H, t, 3)],
-         [2, DRAWER, t, 200], [2, DRAWER, t + 200, 200]],
-        columns=[COL, TYPE, Z, HEIGHT])
+        [[1, ROD, 1700, None, None], *[[2, SHELF, z, None, None] for z in even_shelves(H, t, 3)],
+         [2, DRAWER, t, 200, None], [2, DRAWER, t + 200, 200, None]],
+        columns=[COL, TYPE, Z, HEIGHT, WIDTH])
 
 left, right = st.columns([2, 3])
 with left:
-    st.subheader("רוחב עמודות (מ\"מ)")
-    cols_df = st.data_editor(
-        pd.DataFrame({"רוחב": [round(w, 1) for w in default_col_widths(W, t, n_cols)]},
-                     index=range(1, n_cols + 1)),
-        key=f"cols_{W}_{t}_{n_cols}", use_container_width=True)
-    inner = W - 2 * t - (n_cols - 1) * t
-    st.caption(f"סכום נדרש: {inner:.0f} מ\"מ")
-
-    st.subheader("רכיבים")
+    st.subheader("טבלת ארון")
     items_df = st.data_editor(
-        st.session_state["items"], key="items_editor", num_rows="dynamic", use_container_width=True,
+        st.session_state["items"], key="items_editor", num_rows="dynamic", width="stretch",
         column_config={
             COL: st.column_config.NumberColumn(min_value=1, max_value=n_cols, step=1, required=True),
-            TYPE: st.column_config.SelectboxColumn(options=ITEM_TYPES, required=True),
-            Z: st.column_config.NumberColumn(min_value=0, required=True),
+            TYPE: st.column_config.SelectboxColumn(options=[COL_WIDTH, *ITEM_TYPES], required=True),
+            Z: st.column_config.NumberColumn(min_value=0),
             HEIGHT: st.column_config.NumberColumn(min_value=0, help="למגירה ודלת בלבד"),
+            WIDTH: st.column_config.NumberColumn(min_value=1, help="לשורת רוחב עמודה בלבד"),
         })
 
     q1, q2, q3 = st.columns(3)
     q_col = q1.number_input("לעמודה", 1, n_cols, 1)
     q_n = q2.number_input("מספר מדפים", 1, 20, 4)
     if q3.button("הוסף מדפים במרווח שווה"):
-        new = pd.DataFrame([[q_col, SHELF, round(z, 1), None] for z in even_shelves(H, t, q_n)],
+        new = pd.DataFrame([[q_col, SHELF, round(z, 1), None, None] for z in even_shelves(H, t, q_n)],
                            columns=items_df.columns)
         st.session_state["items"] = pd.concat([items_df, new], ignore_index=True)
         del st.session_state["items_editor"]  # drop stale editor deltas so the new rows show
         st.rerun()
 
+overrides = {int(r[COL]): float(r[WIDTH]) for _, r in items_df.iterrows()
+             if r[TYPE] == COL_WIDTH and pd.notna(r[COL]) and pd.notna(r[WIDTH])}
+col_widths = resolve_col_widths(W, t, n_cols, overrides)
+left.caption("רוחבי עמודות: " + " | ".join(f"{i}: {w:.0f}" for i, w in enumerate(col_widths, 1))
+             + f" (סכום נדרש {W - 2 * t - (n_cols - 1) * t:.0f} מ\"מ)")
+
 items = [{"col": int(r[COL]), "type": r[TYPE], "z": float(r[Z]), "height": float(r[HEIGHT]) if pd.notna(r[HEIGHT]) else 0.0}
-         for _, r in items_df.dropna(subset=[COL, TYPE, Z]).iterrows()]
+         for _, r in items_df[items_df[TYPE] != COL_WIDTH].dropna(subset=[COL, TYPE, Z]).iterrows()]
 
 try:
-    panels = build_panels(W, H, D, t, back_t, cols_df["רוחב"].tolist(), items)
+    panels = build_panels(W, H, D, t, back_t, col_widths, items)
 except ValueError as e:
     right.error(str(e))
     st.stop()
@@ -76,10 +75,10 @@ with right:
     tab3d, tabcut = st.tabs(["תלת־ממד", "רשימת חיתוך ומחיר"])
     with tab3d:
         show_doors = st.toggle("הצג דלתות וחזיתות", True)
-        st.plotly_chart(figure(panels, show_doors), use_container_width=True)
+        st.plotly_chart(figure(panels, show_doors), width="stretch")
     with tabcut:
         cl = cut_list(panels)
-        st.dataframe(cl, use_container_width=True, hide_index=True)
+        st.dataframe(cl, width="stretch", hide_index=True)
         st.download_button("הורד CSV", cl.to_csv(index=False).encode("utf-8-sig"),
                            "cut_list.csv", "text/csv")
         pr = price(panels, p_board, p_back, p_rail, p_hinge)

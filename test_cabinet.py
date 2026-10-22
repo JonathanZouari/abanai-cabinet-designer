@@ -1,7 +1,7 @@
 import pytest
 
 from cabinet import (DOOR, DRAWER, ROD, SHELF, build_panels, cut_list, default_col_widths,
-                     even_shelves, price)
+                     even_shelves, price, resolve_col_widths)
 
 W, H, D, T, B = 1000, 2000, 600, 18, 8
 
@@ -72,3 +72,25 @@ def test_even_shelves_equal_gaps():
     edges = [T] + [e for z in zs for e in (z, z + T)] + [H - T]
     gaps = [edges[i + 1] - edges[i] for i in range(0, len(edges), 2)]
     assert gaps == pytest.approx([gaps[0]] * 4)
+
+
+def test_resolve_no_overrides_equals_default():
+    assert resolve_col_widths(W, T, 3, {}) == default_col_widths(W, T, 3)
+
+
+def test_resolve_one_override_splits_rest():
+    w = resolve_col_widths(W, T, 3, {2: 300})
+    inner = W - 2 * T - 2 * T
+    assert w[1] == 300 and w[0] == w[2] == (inner - 300) / 2 and sum(w) == pytest.approx(inner)
+
+
+def test_resolve_ignores_out_of_range_key():
+    assert resolve_col_widths(W, T, 2, {5: 100, 0: 50}) == default_col_widths(W, T, 2)
+
+
+def test_resolve_all_overridden_as_is():
+    assert resolve_col_widths(W, T, 2, {1: 400, 2: 500}) == [400, 500]
+
+
+def test_resolve_feeds_build_panels():
+    assert build_panels(W, H, D, T, B, resolve_col_widths(W, T, 3, {1: 200}), [])

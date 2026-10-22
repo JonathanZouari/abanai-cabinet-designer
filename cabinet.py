@@ -34,8 +34,16 @@ def even_shelves(height, t, n):
     return [t + i * gap + (i - 1) * t for i in range(1, n + 1)]
 
 
+def resolve_col_widths(width, t, n, overrides):
+    """Column widths: overrides {col (1-based): mm} win, the rest split the leftover evenly."""
+    fixed = {c: w for c, w in overrides.items() if 1 <= c <= n}
+    auto = n - len(fixed)
+    share = (width - 2 * t - (n - 1) * t - sum(fixed.values())) / auto if auto else 0
+    return [fixed.get(c, share) for c in range(1, n + 1)]
+
+
 def default_col_widths(width, t, n):
-    return [(width - 2 * t - (n - 1) * t) / n] * n
+    return resolve_col_widths(width, t, n, {})
 
 
 def _carcass(W, H, D, t, back_t, col_widths):
