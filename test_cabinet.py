@@ -1,7 +1,8 @@
 import pytest
 
-from cabinet import (DOOR, DRAWER, ROD, SHELF, build_panels, cut_list, default_col_widths,
-                     even_shelves, price)
+from cabinet import (DOOR, DRAWER, ROD, SHELF, assembly_steps, build_panels, cut_list,
+                     default_col_widths, even_shelves, price, step_parts)
+from view3d import assembly_html, step_figure
 
 W, H, D, T, B = 1000, 2000, 600, 18, 8
 
@@ -72,3 +73,42 @@ def test_even_shelves_equal_gaps():
     edges = [T] + [e for z in zs for e in (z, z + T)] + [H - T]
     gaps = [edges[i + 1] - edges[i] for i in range(0, len(edges), 2)]
     assert gaps == pytest.approx([gaps[0]] * 4)
+
+
+FULL = [{"col": 1, "type": SHELF, "z": 500, "height": None}, {"col": 2, "type": DRAWER, "z": 100, "height": 200},
+        {"col": 2, "type": DOOR, "z": 400, "height": 1500}, {"col": 1, "type": ROD, "z": 1700, "height": None}]
+
+
+def test_every_panel_in_exactly_one_step():
+    panels = build(2, FULL)
+    placed = [p for s in assembly_steps(panels) for p in s["panels"]]
+    assert len(placed) == len(panels) and {id(p) for p in placed} == {id(p) for p in panels}
+
+
+def test_empty_cabinet_steps():
+    assert [s["title"] for s in assembly_steps(build())] == ["מרכיבים את הבסיס", "תקרה", "גב"]
+
+
+def test_assembly_hardware():
+    steps = {s["title"]: s["hardware"] for s in assembly_steps(build(2, FULL))}
+    assert steps["דלתות"] == {"צירים": 3}
+    assert steps["מחיצות"] == {"ברגים": 8} and steps["תקרה"] == {"ברגים": 12}
+    assert steps["מדפים"] == {"פיני מדף": 4} and steps["מוטות תלייה"] == {"תומכי מוט": 2}
+    assert steps["גב"] == {"מסמרים": 40}
+    assert steps["מסילות וחזיתות מגירה"] == {"זוגות מסילות": 1, "ברגים": 4}
+    short = build(items=[{"col": 1, "type": DOOR, "z": 100, "height": 800}])
+    assert next(s for s in assembly_steps(short) if s["title"] == "דלתות")["hardware"] == {"צירים": 2}
+
+
+def test_step_parts_excludes_rods():
+    step = next(s for s in assembly_steps(build(2, FULL)) if s["title"] == "מוטות תלייה")
+    assert step_parts(step).empty
+
+
+def test_step_figure_and_html():
+    steps = assembly_steps(build(2, FULL))
+    fig = step_figure(steps[0]["panels"], steps[1]["panels"])
+    assert any(tr.type == "mesh3d" for tr in fig.data)
+    assert sum(tr.type == "scatter3d" and tr.mode == "lines" for tr in fig.data) == 2
+    page = assembly_html(steps, "ארון")
+    assert 'dir="rtl"' in page and all(s["title"] in page for s in steps)

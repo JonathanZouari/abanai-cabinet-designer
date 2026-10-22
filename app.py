@@ -2,9 +2,9 @@
 import pandas as pd
 import streamlit as st
 
-from cabinet import (DRAWER, ITEM_TYPES, ROD, SHELF, build_panels, cut_list, default_col_widths,
-                     even_shelves, price)
-from view3d import figure
+from cabinet import (DRAWER, ITEM_TYPES, ROD, SHELF, assembly_steps, build_panels, cut_list,
+                     default_col_widths, even_shelves, price, step_parts)
+from view3d import assembly_html, figure, step_figure
 
 st.set_page_config(page_title="תכנון ארון", layout="wide")
 st.markdown("<style>.stApp, [data-testid='stSidebar'] {direction: rtl; text-align: right;}</style>",
@@ -73,7 +73,7 @@ except ValueError as e:
     st.stop()
 
 with right:
-    tab3d, tabcut = st.tabs(["תלת־ממד", "רשימת חיתוך ומחיר"])
+    tab3d, tabcut, tabguide = st.tabs(["תלת־ממד", "רשימת חיתוך ומחיר", "הוראות הרכבה"])
     with tab3d:
         show_doors = st.toggle("הצג דלתות וחזיתות", True)
         st.plotly_chart(figure(panels, show_doors), use_container_width=True)
@@ -88,3 +88,18 @@ with right:
                   delta_color="off")
         m2.metric("פרזול", f"₪{pr['hardware']:,.0f}")
         m3.metric("סה\"כ", f"₪{pr['total']:,.0f}")
+    with tabguide:
+        steps = assembly_steps(panels)
+        n = st.select_slider("שלב", list(range(1, len(steps) + 1))) if len(steps) > 1 else 1
+        step = steps[n - 1]
+        done = [p for s in steps[:n - 1] for p in s["panels"]]
+        st.subheader(f"שלב {n} מתוך {len(steps)}: {step['title']}")
+        st.write(step["text"])
+        st.plotly_chart(step_figure(done, step["panels"]), use_container_width=True)
+        c1, c2 = st.columns(2)
+        c1.dataframe(step_parts(step), use_container_width=True, hide_index=True)
+        c2.write("**פרזול**")
+        for name, qty in step["hardware"].items():
+            c2.write(f"{name}: {qty}")
+        st.download_button("הורד חוברת הרכבה (HTML)", assembly_html(steps, "הוראות הרכבה").encode("utf-8"),
+                           "assembly.html", "text/html")
