@@ -2,8 +2,8 @@
 import plotly.graph_objects as go
 
 COLORS = {
-    "carcass": "#c8a27a", "back": "#8b6b4a", "shelf": "#e0c097",
-    "drawer_front": "#6b8fb3", "drawer_box": "#b0c4d8", "door": "#9fb89a", "rod": "#555555",
+    "carcass": "#1a1a1a", "back": "#2e2e2e", "shelf": "#7b2cbf",
+    "drawer_front": "#c1121f", "drawer_box": "#b185db", "door": "#5a189a", "rod": "#e63946",
 }
 LABELS = {
     "carcass": "גוף", "back": "גב", "shelf": "מדפים", "drawer_front": "חזיתות מגירה",
