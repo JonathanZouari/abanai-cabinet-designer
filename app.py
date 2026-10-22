@@ -72,11 +72,20 @@ except ValueError as e:
     right.error(str(e))
     st.stop()
 
+if "approved" not in st.session_state:
+    st.session_state["approved"] = set(panels)
+changed = set(panels) - st.session_state["approved"]
+
 with right:
     tab3d, tabcut = st.tabs(["תלת־ממד", "רשימת חיתוך ומחיר"])
     with tab3d:
         show_doors = st.toggle("הצג דלתות וחזיתות", True)
-        st.plotly_chart(figure(panels, show_doors), use_container_width=True)
+        if changed:
+            st.warning(f"{len(changed)} חלקים השתנו וממתינים לאישור (מסומנים באדום)")
+            if st.button("אשר שינויים"):
+                st.session_state["approved"] = set(panels)
+                st.rerun()
+        st.plotly_chart(figure(panels, show_doors, changed), use_container_width=True)
     with tabcut:
         cl = cut_list(panels)
         st.dataframe(cl, use_container_width=True, hide_index=True)
