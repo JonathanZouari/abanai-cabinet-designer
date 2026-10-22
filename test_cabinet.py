@@ -2,6 +2,7 @@ import pytest
 
 from cabinet import (DOOR, DRAWER, ROD, SHELF, build_panels, cut_list, default_col_widths,
                      even_shelves, price)
+from view3d import COLORS, FINISHES, LABELS, figure
 
 W, H, D, T, B = 1000, 2000, 600, 18, 8
 
@@ -72,3 +73,16 @@ def test_even_shelves_equal_gaps():
     edges = [T] + [e for z in zs for e in (z, z + T)] + [H - T]
     gaps = [edges[i + 1] - edges[i] for i in range(0, len(edges), 2)]
     assert gaps == pytest.approx([gaps[0]] * 4)
+
+
+@pytest.mark.parametrize("name", list(FINISHES))
+def test_finish_colors_carcass_only(name):
+    panels = build(items=[{"col": 1, "type": DOOR, "z": T, "height": 500},
+                          {"col": 1, "type": DRAWER, "z": 600, "height": 200}])
+    color = {t.name: t.color for t in figure(panels, finish=name).data}
+    assert color[LABELS["carcass"]] == FINISHES[name]["carcass"]
+    assert color[LABELS["back"]] == COLORS["back"]
+
+
+def test_turntable_drag():
+    assert figure(build()).layout.scene.dragmode == "turntable"
