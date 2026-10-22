@@ -13,6 +13,10 @@ ITEM_TYPES = [SHELF, DRAWER, DOOR, ROD]
 RAIL_GAP = 13      # side clearance per drawer rail, mm
 DRAWER_BACK_GAP = 20  # clearance between drawer box and cabinet back, mm
 ROD_SIZE = 25
+BASE_SCREWS, DIVIDER_SCREWS, TOP_SCREWS_PER_JOINT = 8, 8, 4  # per joint set / divider / top joint
+NAIL_SPACING = 150  # back panel nail pitch, mm
+SHELF_PINS, ROD_SUPPORTS, DRAWER_BOX_SCREWS, DRAWER_RAIL_SCREWS = 4, 2, 8, 4
+HINGE_TALL_DOOR = 1000  # doors taller than this get 3 hinges instead of 2
 
 
 @dataclass(frozen=True)
@@ -133,3 +137,38 @@ def price(panels, price_m2_board, price_m2_back, drawer_rail, hinge_per_door):
                 + sum(p.kind == "door" for p in panels) * hinge_per_door)
     return {"board_m2": board_m2, "back_m2": back_m2, "material": material,
             "hardware": hardware, "total": material + hardware}
+
+
+def assembly_steps(panels):
+    """Ordered assembly steps: [{title, text, panels, hardware}]; every panel lands in exactly one step."""
+    kind = lambda k: [p for p in panels if p.kind == k]
+    named = lambda *n: [p for p in panels if p.name in n]
+    dividers, backs, drawers, doors = named("מחיצה"), kind("back"), kind("drawer_front"), kind("door")
+    back = backs[0] if backs else None
+    nails = math.ceil(2 * (back.w + back.h) / NAIL_SPACING) if back else 0
+    hinges = sum(2 if p.h <= HINGE_TALL_DOOR else 3 for p in doors)
+    spec = [
+        ("מרכיבים את הבסיס", "מחברים את שתי הדפנות לתחתית ומהדקים בברגים.",
+         named("תחתית", "דופן"), {"ברגים": BASE_SCREWS}),
+        ("מחיצות", "מציבים את המחיצות במקומן ומהדקים בברגים.",
+         dividers, {"ברגים": DIVIDER_SCREWS * len(dividers)}),
+        ("תקרה", "מניחים את התקרה מלמעלה ומהדקים לדפנות ולמחיצות.",
+         named("תקרה"), {"ברגים": TOP_SCREWS_PER_JOINT * (2 + len(dividers))}),
+        ("גב", "מניחים את הגב ומקבעים אותו במסמרים לאורך כל ההיקף.",
+         backs, {"מסמרים": nails}),
+        ("מדפים", "מכניסים את פיני המדף ומניחים את המדפים עליהם.",
+         kind("shelf"), {"פיני מדף": SHELF_PINS * len(kind("shelf"))}),
+        ("מוטות תלייה", "מתקינים את תומכי המוט ומניחים את המוט עליהם.",
+         kind("rod"), {"תומכי מוט": ROD_SUPPORTS * len(kind("rod"))}),
+        ("מרכיבים מגירות", "מחברים את צדי המגירה, הגב והתחתית בברגים.",
+         kind("drawer_box"), {"ברגים": DRAWER_BOX_SCREWS * len(drawers)}),
+        ("מסילות וחזיתות מגירה", "מרכיבים את המסילות בארון, מחליקים את המגירה ומחברים את החזית.",
+         drawers, {"זוגות מסילות": len(drawers), "ברגים": DRAWER_RAIL_SCREWS * len(drawers)}),
+        ("דלתות", "תולים את הדלתות על הצירים ומכוונים את היישור.",
+         doors, {"צירים": hinges}),
+    ]
+    return [{"title": t, "text": x, "panels": ps, "hardware": hw} for t, x, ps, hw in spec if ps]
+
+
+def step_parts(step):
+    return cut_list(step["panels"])

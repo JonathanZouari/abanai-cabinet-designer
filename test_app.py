@@ -1,0 +1,6 @@
+from streamlit.testing.v1 import AppTest
+
+
+def test_app_loads_without_exception():
+    at = AppTest.from_file("app.py").run(timeout=60)
+    assert not at.exception
