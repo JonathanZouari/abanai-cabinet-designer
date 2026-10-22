@@ -1,7 +1,7 @@
 import pytest
 
-from cabinet import (DOOR, DRAWER, ROD, SHELF, build_panels, cut_list, default_col_widths,
-                     even_shelves, price)
+from cabinet import (DOOR, DRAWER, DRESSER, PRESETS, ROD, SHELF, WARDROBE, allowed_types, build_panels,
+                     cut_list, default_col_widths, default_items, even_shelves, price)
 
 W, H, D, T, B = 1000, 2000, 600, 18, 8
 
@@ -72,3 +72,39 @@ def test_even_shelves_equal_gaps():
     edges = [T] + [e for z in zs for e in (z, z + T)] + [H - T]
     gaps = [edges[i + 1] - edges[i] for i in range(0, len(edges), 2)]
     assert gaps == pytest.approx([gaps[0]] * 4)
+
+
+def _rows_to_items(rows):
+    return [{"col": c, "type": ty, "z": z, "height": h or 0.0} for c, ty, z, h in rows]
+
+
+def test_dresser_default_items_build_without_rod():
+    p = PRESETS[DRESSER]
+    rows = default_items(DRESSER, p["height"], T)
+    panels = build_panels(p["width"], p["height"], p["depth"], T, B,
+                          default_col_widths(p["width"], T, p["cols"]), _rows_to_items(rows), furniture=DRESSER)
+    assert sum(x.kind == "drawer_front" for x in panels) == 8
+    assert not any(x.kind == "rod" for x in panels)
+
+
+def test_wardrobe_default_items_match_old_defaults():
+    rows = default_items(WARDROBE, H, T)
+    expected = [[1, ROD, 1700, None], *[[2, SHELF, z, None] for z in even_shelves(H, T, 3)],
+                [2, DRAWER, T, 200], [2, DRAWER, T + 200, 200]]
+    assert rows == expected
+
+
+def test_rod_in_dresser_raises_but_not_in_wardrobe():
+    items = [{"col": 1, "type": ROD, "z": 500, "height": None}]
+    with pytest.raises(ValueError):
+        build_panels(W, H, D, T, B, default_col_widths(W, T, 1), items, furniture=DRESSER)
+    build_panels(W, H, D, T, B, default_col_widths(W, T, 1), items, furniture=WARDROBE)
+
+
+def test_allowed_types():
+    assert ROD not in allowed_types(DRESSER) and ROD in allowed_types(WARDROBE)
+
+
+def test_dresser_drawers_do_not_touch():
+    rows = sorted(r for r in default_items(DRESSER, PRESETS[DRESSER]["height"], T) if r[0] == 1)
+    assert all(b[2] - (a[2] + a[3]) >= 3 - 1e-6 for a, b in zip(rows, rows[1:]))
