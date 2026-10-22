@@ -2,7 +2,7 @@
 import pandas as pd
 import streamlit as st
 
-from cabinet import (DRAWER, ITEM_TYPES, ROD, SHELF, build_panels, cut_list, default_col_widths,
+from cabinet import (PRESETS, SHELF, build_panels, cut_list, default_col_widths, default_items,
                      even_shelves, price)
 from view3d import FINISHES, figure
 
@@ -14,13 +14,15 @@ st.title("🪚 תכנון ארון")
 COL, TYPE, Z, HEIGHT = "עמודה", "סוג", "גובה מהרצפה (מ\"מ)", "גובה רכיב (מ\"מ)"
 
 with st.sidebar:
+    kind = st.radio("סוג רהיט", list(PRESETS), horizontal=True)
+    P = PRESETS[kind]
     st.header("מידות (מ\"מ)")
-    W = st.number_input("רוחב", 300, 5000, 1000, 10)
-    H = st.number_input("גובה", 300, 3000, 2000, 10)
-    D = st.number_input("עומק", 200, 1000, 600, 10)
+    W = st.number_input("רוחב", *P["W"][:2], P["W"][2], 10, key=f"W_{kind}")
+    H = st.number_input("גובה", *P["H"][:2], P["H"][2], 10, key=f"H_{kind}")
+    D = st.number_input("עומק", *P["D"][:2], P["D"][2], 10, key=f"D_{kind}")
     t = st.number_input("עובי לוח", 6, 40, 18)
     back_t = st.number_input("עובי גב", 3, 20, 8)
-    n_cols = st.number_input("מספר עמודות", 1, 8, 2)
+    n_cols = st.number_input("מספר עמודות", 1, 8, P["cols"], key=f"cols_n_{kind}")
     st.header("מחירים (₪)")
     p_board = st.number_input("לוח למ\"ר", 0.0, value=120.0)
     p_back = st.number_input("גב למ\"ר", 0.0, value=40.0)
@@ -29,11 +31,10 @@ with st.sidebar:
     st.header("גימור")
     finish = st.selectbox("צבע ארון", list(FINISHES))
 
-if "items" not in st.session_state:
-    st.session_state["items"] = pd.DataFrame(
-        [[1, ROD, 1700, None], *[[2, SHELF, z, None] for z in even_shelves(H, t, 3)],
-         [2, DRAWER, t, 200], [2, DRAWER, t + 200, 200]],
-        columns=[COL, TYPE, Z, HEIGHT])
+if st.session_state.get("kind") != kind:  # type changed: reset components
+    st.session_state["items"] = pd.DataFrame(default_items(kind, H, t, n_cols), columns=[COL, TYPE, Z, HEIGHT])
+    st.session_state.pop("items_editor", None)
+    st.session_state["kind"] = kind
 
 left, right = st.columns([2, 3])
 with left:
@@ -50,7 +51,7 @@ with left:
         st.session_state["items"], key="items_editor", num_rows="dynamic", use_container_width=True,
         column_config={
             COL: st.column_config.NumberColumn(min_value=1, max_value=n_cols, step=1, required=True),
-            TYPE: st.column_config.SelectboxColumn(options=ITEM_TYPES, required=True),
+            TYPE: st.column_config.SelectboxColumn(options=P["types"], required=True),
             Z: st.column_config.NumberColumn(min_value=0, required=True),
             HEIGHT: st.column_config.NumberColumn(min_value=0, help="למגירה ודלת בלבד"),
         })
@@ -69,7 +70,7 @@ items = [{"col": int(r[COL]), "type": r[TYPE], "z": float(r[Z]), "height": float
          for _, r in items_df.dropna(subset=[COL, TYPE, Z]).iterrows()]
 
 try:
-    panels = build_panels(W, H, D, t, back_t, cols_df["רוחב"].tolist(), items)
+    panels = build_panels(W, H, D, t, back_t, cols_df["רוחב"].tolist(), items, P["types"])
 except ValueError as e:
     right.error(str(e))
     st.stop()
