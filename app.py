@@ -2,36 +2,38 @@
 import pandas as pd
 import streamlit as st
 
-from cabinet import (DRAWER, ITEM_TYPES, ROD, SHELF, build_panels, cut_list, default_col_widths,
-                     even_shelves, price)
+from cabinet import (FURNITURE_TYPES, PRESETS, SHELF, allowed_types, build_panels, cut_list,
+                     default_col_widths, default_items, even_shelves, price)
 from view3d import figure
 
 st.set_page_config(page_title="תכנון ארון", layout="wide")
 st.markdown("<style>.stApp, [data-testid='stSidebar'] {direction: rtl; text-align: right;}</style>",
             unsafe_allow_html=True)
-st.title("🪚 תכנון ארון")
 
 COL, TYPE, Z, HEIGHT = "עמודה", "סוג", "גובה מהרצפה (מ\"מ)", "גובה רכיב (מ\"מ)"
 
 with st.sidebar:
+    furniture = st.radio("סוג רהיט", FURNITURE_TYPES, horizontal=True)
+    ps = PRESETS[furniture]
     st.header("מידות (מ\"מ)")
-    W = st.number_input("רוחב", 300, 5000, 1000, 10)
-    H = st.number_input("גובה", 300, 3000, 2000, 10)
-    D = st.number_input("עומק", 200, 1000, 600, 10)
+    W = st.number_input("רוחב", 300, 5000, ps["width"], 10, key=f"W_{furniture}")
+    H = st.number_input("גובה", 300, 3000, ps["height"], 10, key=f"H_{furniture}")
+    D = st.number_input("עומק", 200, 1000, ps["depth"], 10, key=f"D_{furniture}")
     t = st.number_input("עובי לוח", 6, 40, 18)
     back_t = st.number_input("עובי גב", 3, 20, 8)
-    n_cols = st.number_input("מספר עמודות", 1, 8, 2)
+    n_cols = st.number_input("מספר עמודות", 1, 8, ps["cols"], key=f"cols_n_{furniture}")
     st.header("מחירים (₪)")
     p_board = st.number_input("לוח למ\"ר", 0.0, value=120.0)
     p_back = st.number_input("גב למ\"ר", 0.0, value=40.0)
     p_rail = st.number_input("זוג מסילות למגירה", 0.0, value=60.0)
     p_hinge = st.number_input("צירים לדלת", 0.0, value=30.0)
 
-if "items" not in st.session_state:
-    st.session_state["items"] = pd.DataFrame(
-        [[1, ROD, 1700, None], *[[2, SHELF, z, None] for z in even_shelves(H, t, 3)],
-         [2, DRAWER, t, 200], [2, DRAWER, t + 200, 200]],
-        columns=[COL, TYPE, Z, HEIGHT])
+st.title(f"🪚 תכנון {furniture}")
+
+if st.session_state.get("furniture") != furniture:
+    st.session_state["furniture"] = furniture
+    st.session_state["items"] = pd.DataFrame(default_items(furniture, H, t), columns=[COL, TYPE, Z, HEIGHT])
+    st.session_state.pop("items_editor", None)  # drop stale editor deltas so the new rows show
 
 left, right = st.columns([2, 3])
 with left:
@@ -48,7 +50,7 @@ with left:
         st.session_state["items"], key="items_editor", num_rows="dynamic", use_container_width=True,
         column_config={
             COL: st.column_config.NumberColumn(min_value=1, max_value=n_cols, step=1, required=True),
-            TYPE: st.column_config.SelectboxColumn(options=ITEM_TYPES, required=True),
+            TYPE: st.column_config.SelectboxColumn(options=allowed_types(furniture), required=True),
             Z: st.column_config.NumberColumn(min_value=0, required=True),
             HEIGHT: st.column_config.NumberColumn(min_value=0, help="למגירה ודלת בלבד"),
         })
@@ -67,7 +69,7 @@ items = [{"col": int(r[COL]), "type": r[TYPE], "z": float(r[Z]), "height": float
          for _, r in items_df.dropna(subset=[COL, TYPE, Z]).iterrows()]
 
 try:
-    panels = build_panels(W, H, D, t, back_t, cols_df["רוחב"].tolist(), items)
+    panels = build_panels(W, H, D, t, back_t, cols_df["רוחב"].tolist(), items, furniture)
 except ValueError as e:
     right.error(str(e))
     st.stop()
