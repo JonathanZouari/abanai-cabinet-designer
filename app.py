@@ -2,8 +2,8 @@
 import pandas as pd
 import streamlit as st
 
-from cabinet import (DRAWER, ITEM_TYPES, ROD, SHELF, build_panels, cut_list, default_col_widths,
-                     even_shelves, price)
+from cabinet import (DRAWER, ITEM_TYPES, NEEDS, ROD, SHELF, WOODS, build_panels, cut_list,
+                     default_col_widths, even_shelves, price, wood_tips)
 from view3d import figure
 
 st.set_page_config(page_title="תכנון ארון", layout="wide")
@@ -21,6 +21,9 @@ with st.sidebar:
     t = st.number_input("עובי לוח", 6, 40, 18)
     back_t = st.number_input("עובי גב", 3, 20, 8)
     n_cols = st.number_input("מספר עמודות", 1, 8, 2)
+    st.header("חומר")
+    wood = st.selectbox("סוג עץ", list(WOODS))
+    needs = st.multiselect("דרישות הלקוח", NEEDS)
     st.header("מחירים (₪)")
     p_board = st.number_input("לוח למ\"ר", 0.0, value=120.0)
     p_back = st.number_input("גב למ\"ר", 0.0, value=40.0)
@@ -73,7 +76,7 @@ except ValueError as e:
     st.stop()
 
 with right:
-    tab3d, tabcut = st.tabs(["תלת־ממד", "רשימת חיתוך ומחיר"])
+    tab3d, tabcut, tabwood = st.tabs(["תלת־ממד", "רשימת חיתוך ומחיר", "סוג עץ"])
     with tab3d:
         show_doors = st.toggle("הצג דלתות וחזיתות", True)
         st.plotly_chart(figure(panels, show_doors), use_container_width=True)
@@ -88,3 +91,13 @@ with right:
                   delta_color="off")
         m2.metric("פרזול", f"₪{pr['hardware']:,.0f}")
         m3.metric("סה\"כ", f"₪{pr['total']:,.0f}")
+    with tabwood:
+        st.subheader(wood)
+        pc, cc = st.columns(2)
+        pc.markdown("**יתרונות**\n" + "\n".join(f"- {x}" for x in WOODS[wood]["pros"]))
+        cc.markdown("**חסרונות**\n" + "\n".join(f"- {x}" for x in WOODS[wood]["cons"]))
+        st.subheader("טיפים לפי דרישות הלקוח")
+        if not needs:
+            st.info("בחר דרישות לקוח בסרגל הצד")
+        for tip in wood_tips(wood, needs):
+            st.markdown(tip)

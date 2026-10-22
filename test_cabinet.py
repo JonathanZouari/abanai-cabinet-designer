@@ -1,7 +1,7 @@
 import pytest
 
-from cabinet import (DOOR, DRAWER, ROD, SHELF, build_panels, cut_list, default_col_widths,
-                     even_shelves, price)
+from cabinet import (DOOR, DRAWER, NEEDS, ROD, SHELF, WOODS, build_panels, cut_list,
+                     default_col_widths, even_shelves, price, wood_tips)
 
 W, H, D, T, B = 1000, 2000, 600, 18, 8
 
@@ -72,3 +72,30 @@ def test_even_shelves_equal_gaps():
     edges = [T] + [e for z in zs for e in (z, z + T)] + [H - T]
     gaps = [edges[i + 1] - edges[i] for i in range(0, len(edges), 2)]
     assert gaps == pytest.approx([gaps[0]] * 4)
+
+
+def test_woods_complete():
+    for name, w in WOODS.items():
+        assert w["pros"] and w["cons"], name
+        assert all(w["scores"][n] in (1, 2, 3) for n in NEEDS), name
+
+
+def test_wood_tips_poor_fit_suggests_better():
+    (tip,) = wood_tips("MDF", ["עמידות ללחות"])
+    assert tip.startswith("⚠️") and "MDF עמיד מים (ירוק)" in tip.split("עדיף:")[1]
+    assert "MDF," not in tip.split("עדיף:")[1] and not tip.split("עדיף:")[1].strip() == "MDF"
+
+
+def test_wood_tips_good_fit_and_empty():
+    assert wood_tips("אלון מלא", ["עומס כבד"])[0].startswith("✅")
+    assert wood_tips("אלון מלא", []) == []
+
+
+def test_wood_tips_heavy_load_adds_shelf_tip():
+    assert len(wood_tips("אלון מלא", ["עומס כבד"])) == 2
+
+
+@pytest.mark.parametrize("wood,needs", [("לא קיים", []), ("MDF", ["לא קיים"])])
+def test_wood_tips_unknown_raises(wood, needs):
+    with pytest.raises(ValueError):
+        wood_tips(wood, needs)
