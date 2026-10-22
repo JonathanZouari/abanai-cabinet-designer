@@ -2,6 +2,7 @@ import pytest
 
 from cabinet import (DOOR, DRAWER, ROD, SHELF, build_panels, cut_list, default_col_widths,
                      even_shelves, price)
+from view3d import figure
 
 W, H, D, T, B = 1000, 2000, 600, 18, 8
 
@@ -72,3 +73,25 @@ def test_even_shelves_equal_gaps():
     edges = [T] + [e for z in zs for e in (z, z + T)] + [H - T]
     gaps = [edges[i + 1] - edges[i] for i in range(0, len(edges), 2)]
     assert gaps == pytest.approx([gaps[0]] * 4)
+
+
+RED = "שינוי ממתין לאישור"
+
+
+def test_figure_changed_panel_is_red_only():
+    panels = build(1, [{"col": 1, "type": SHELF, "z": 500, "height": None}])
+    shelf = next(p for p in panels if p.kind == "shelf")
+    red = [t for t in figure(panels, changed={shelf}).data if t.name == RED]
+    assert len(red) == 1 and len(red[0].x) == 8
+    assert all(t.name != "מדפים" for t in figure(panels, changed={shelf}).data)
+    assert all(t.name != RED for t in figure(panels).data)
+
+
+def test_app_change_needs_approval():
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file("app.py", default_timeout=30).run()
+    assert not at.exception and not [b for b in at.button if b.label == "אשר שינויים"]
+    next(n for n in at.number_input if n.label == "רוחב").set_value(1200).run()
+    assert [b for b in at.button if b.label == "אשר שינויים"]
+    next(b for b in at.button if b.label == "אשר שינויים").click().run()
+    assert not at.exception and not [b for b in at.button if b.label == "אשר שינויים"]
