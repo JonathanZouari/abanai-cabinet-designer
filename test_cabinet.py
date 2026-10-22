@@ -1,7 +1,8 @@
 import pytest
 
-from cabinet import (DOOR, DRAWER, ROD, SHELF, build_panels, cut_list, default_col_widths,
+from cabinet import (PRESETS, default_items, DOOR, DRAWER, ROD, SHELF, build_panels, cut_list, default_col_widths,
                      even_shelves, price)
+from view3d import COLORS, FINISHES, LABELS, figure
 
 W, H, D, T, B = 1000, 2000, 600, 18, 8
 
@@ -72,3 +73,54 @@ def test_even_shelves_equal_gaps():
     edges = [T] + [e for z in zs for e in (z, z + T)] + [H - T]
     gaps = [edges[i + 1] - edges[i] for i in range(0, len(edges), 2)]
     assert gaps == pytest.approx([gaps[0]] * 4)
+
+
+@pytest.mark.parametrize("name", list(FINISHES))
+def test_finish_colors_carcass_only(name):
+    panels = build(items=[{"col": 1, "type": DOOR, "z": T, "height": 500},
+                          {"col": 1, "type": DRAWER, "z": 600, "height": 200}])
+    color = {t.name: t.color for t in figure(panels, finish=name).data}
+    assert color[LABELS["carcass"]] == FINISHES[name]["carcass"]
+    assert color[LABELS["back"]] == COLORS["back"]
+
+
+def test_turntable_drag():
+    assert figure(build()).layout.scene.dragmode == "turntable"
+
+
+def _items(kind, H, n_cols):
+    return [dict(zip(("col", "type", "z", "height"), r)) for r in default_items(kind, H, T, n_cols)]
+
+
+def test_dresser_preset():
+    assert ROD not in PRESETS["שידה"]["types"] and PRESETS["שידה"]["H"][1] == 1200
+
+
+@pytest.mark.parametrize("kind", list(PRESETS))
+def test_default_items_build(kind):
+    p = PRESETS[kind]
+    build_panels(1000, p["H"][2], 600, T, B, default_col_widths(1000, T, p["cols"]),
+                 _items(kind, p["H"][2], p["cols"]), p["types"])
+
+
+def test_dresser_defaults_four_drawers_per_column():
+    items = _items("שידה", 800, 2)
+    assert {i["type"] for i in items} == {DRAWER} and len(items) == 8
+    col1 = [i for i in items if i["col"] == 1]
+    assert len(col1) == 4 and col1[-1]["z"] + col1[-1]["height"] == pytest.approx(800 - T, abs=0.5)
+
+
+def test_wardrobe_defaults_have_rod():
+    assert any(i["type"] == ROD and i["z"] == 1700 for i in _items("ארון", 2000, 2))
+
+
+def test_disallowed_type_raises():
+    with pytest.raises(ValueError):
+        build_panels(W, H, D, T, B, default_col_widths(W, T, 1),
+                     [{"col": 1, "type": ROD, "z": 1700, "height": None}], [SHELF, DRAWER, DOOR])
+
+
+@pytest.mark.parametrize("h", range(300, 1201))
+def test_dresser_defaults_build_at_every_height(h):
+    build_panels(1000, h, 450, T, B, default_col_widths(1000, T, 2), _items("שידה", h, 2),
+                 PRESETS["שידה"]["types"])

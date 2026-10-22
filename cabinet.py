@@ -10,6 +10,14 @@ import pandas as pd
 SHELF, DRAWER, DOOR, ROD = "מדף", "מגירה", "דלת", "מוט תלייה"
 ITEM_TYPES = [SHELF, DRAWER, DOOR, ROD]
 
+# Per furniture type: (min, max, default) ranges, default columns, allowed item types.
+PRESETS = {
+    "ארון": {"W": (300, 5000, 1000), "H": (300, 3000, 2000), "D": (200, 1000, 600),
+             "cols": 2, "types": ITEM_TYPES},
+    "שידה": {"W": (300, 3000, 1200), "H": (300, 1200, 800), "D": (200, 700, 450),
+             "cols": 2, "types": [SHELF, DRAWER, DOOR]},
+}
+
 RAIL_GAP = 13      # side clearance per drawer rail, mm
 DRAWER_BACK_GAP = 20  # clearance between drawer box and cabinet back, mm
 ROD_SIZE = 25
@@ -32,6 +40,15 @@ def even_shelves(height, t, n):
     """Bottom-face heights of n shelves evenly spaced inside the carcass."""
     gap = (height - 2 * t - n * t) / (n + 1)
     return [t + i * gap + (i - 1) * t for i in range(1, n + 1)]
+
+
+def default_items(kind, H, t, n_cols):
+    """Default [col, type, z, height] rows for a furniture type."""
+    if kind == "שידה":  # 4 equal drawers per column
+        h = math.floor((H - 2 * t) / 4 * 10) / 10  # floor so the top drawer never overruns
+        return [[c, DRAWER, round(t + i * h, 1), h] for c in range(1, n_cols + 1) for i in range(4)]
+    return [[1, ROD, 1700, None], *[[2, SHELF, z, None] for z in even_shelves(H, t, 3)],
+            [2, DRAWER, t, 200], [2, DRAWER, t + 200, 200]]
 
 
 def default_col_widths(width, t, n):
@@ -74,10 +91,12 @@ def _drawer(cx, cw, z, h, D, t, back_t):
     ]
 
 
-def _validate(item, n_cols, H, t):
+def _validate(item, n_cols, H, t, allowed_types=None):
     col, typ, z, h = item["col"], item["type"], item["z"], item["height"]
     if typ not in ITEM_TYPES:
         raise ValueError(f"סוג רכיב לא מוכר: {typ}")
+    if allowed_types is not None and typ not in allowed_types:
+        raise ValueError(f"{typ} לא זמין בסוג רהיט זה")
     if not (1 <= col <= n_cols):
         raise ValueError(f"{typ}: עמודה {col} לא קיימת (יש {n_cols})")
     if typ in (DRAWER, DOOR) and not (h and h > 0):
@@ -87,7 +106,7 @@ def _validate(item, n_cols, H, t):
         raise ValueError(f"{typ} בעמודה {col}: גובה {z} חורג מגבולות הארון")
 
 
-def build_panels(width, height, depth, t, back_t, col_widths, items):
+def build_panels(width, height, depth, t, back_t, col_widths, items, allowed_types=None):
     """items: iterable of dicts {col (1-based), type, z (mm from floor), height (mm)}."""
     if any(not (w > 0) for w in col_widths):
         raise ValueError("רוחב עמודה חייב להיות חיובי")
@@ -99,7 +118,7 @@ def build_panels(width, height, depth, t, back_t, col_widths, items):
     panels = _carcass(width, height, D, t, back_t, col_widths)
     xs = _col_x(t, col_widths)
     for item in items:
-        _validate(item, len(col_widths), height, t)
+        _validate(item, len(col_widths), height, t, allowed_types)
         cx, cw = xs[item["col"] - 1], col_widths[item["col"] - 1]
         typ, z, h = item["type"], item["z"], item["height"]
         if typ == SHELF:

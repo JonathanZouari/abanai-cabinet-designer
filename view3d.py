@@ -9,6 +9,14 @@ LABELS = {
     "carcass": "גוף", "back": "גב", "shelf": "מדפים", "drawer_front": "חזיתות מגירה",
     "drawer_box": "תיבות מגירה", "door": "דלתות", "rod": "מוטות",
 }
+# Finish -> colors of visible parts (shelves a bit lighter than carcass).
+FINISHES = {
+    "טבעי": {"carcass": "#c8a27a", "shelf": "#e0c097", "drawer_front": "#6b8fb3", "door": "#9fb89a"},
+    "אלון": {"carcass": "#d2b48c", "shelf": "#e6cfa8", "drawer_front": "#c19a6b", "door": "#c9a77c"},
+    "אגוז": {"carcass": "#5c4033", "shelf": "#7a5c4a", "drawer_front": "#4a3228", "door": "#6b4a3a"},
+    "לבן": {"carcass": "#f2f0eb", "shelf": "#dcdad4", "drawer_front": "#e4e1da", "door": "#ebe8e1"},
+    "אפור גרפיט": {"carcass": "#4a4f55", "shelf": "#656b72", "drawer_front": "#383c41", "door": "#52575d"},
+}
 # Unit cube vertices + triangles (plotly docs ordering).
 CX, CY, CZ = [0, 0, 1, 1, 0, 0, 1, 1], [0, 1, 1, 0, 0, 1, 1, 0], [0, 0, 0, 0, 1, 1, 1, 1]
 TI = [7, 0, 0, 0, 4, 4, 6, 6, 4, 0, 3, 2]
@@ -16,9 +24,9 @@ TJ = [3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3]
 TK = [0, 7, 2, 3, 6, 7, 1, 1, 5, 5, 7, 6]
 
 
-def figure(panels, show_doors=True):
+def figure(panels, show_doors=True, finish="טבעי"):
     fig = go.Figure()
-    for kind, color in COLORS.items():
+    for kind, color in {**COLORS, **FINISHES[finish]}.items():
         group = [p for p in panels if p.kind == kind]
         if kind in ("door", "drawer_front") and not show_doors:
             continue
@@ -36,7 +44,7 @@ def figure(panels, show_doors=True):
                                 opacity=0.7 if kind == "door" else 1, name=LABELS[kind],
                                 showlegend=True, hoverinfo="name"))
     fig.update_layout(
-        scene=dict(aspectmode="data", xaxis_title="רוחב", yaxis_title="עומק", zaxis_title="גובה",
+        scene=dict(aspectmode="data", dragmode="turntable", xaxis_title="רוחב", yaxis_title="עומק", zaxis_title="גובה",
                    camera=dict(eye=dict(x=0.6, y=-1.8, z=0.6))),
         margin=dict(l=0, r=0, t=0, b=0), height=650,
     )
