@@ -2,7 +2,7 @@
 import pandas as pd
 import streamlit as st
 
-from cabinet import (DRAWER, ITEM_TYPES, ROD, SHELF, build_panels, cut_list, default_col_widths,
+from cabinet import (DOOR_MATERIALS, DRAWER, ITEM_TYPES, ROD, SHELF, build_panels, cut_list, default_col_widths,
                      even_shelves, price)
 from view3d import figure
 
@@ -12,6 +12,8 @@ st.markdown("<style>.stApp, [data-testid='stSidebar'] {direction: rtl; text-alig
 st.title("🪚 תכנון ארון")
 
 COL, TYPE, Z, HEIGHT = "עמודה", "סוג", "גובה מהרצפה (מ\"מ)", "גובה רכיב (מ\"מ)"
+MAT = "חומר דלת"
+NAME, COLOR, PRICE, GLASS = "שם", "צבע", "מחיר לדלת", "זכוכית"
 
 with st.sidebar:
     st.header("מידות (מ\"מ)")
@@ -26,12 +28,25 @@ with st.sidebar:
     p_back = st.number_input("גב למ\"ר", 0.0, value=40.0)
     p_rail = st.number_input("זוג מסילות למגירה", 0.0, value=60.0)
     p_hinge = st.number_input("צירים לדלת", 0.0, value=30.0)
+    p_hinge_glass = st.number_input("צירים לדלת זכוכית", 0.0, value=60.0)
+    st.header("חומרי דלת")
+    mats_df = st.data_editor(
+        pd.DataFrame([{NAME: m["name"], COLOR: m["color"], PRICE: m["price"], GLASS: m["glass"]}
+                      for m in DOOR_MATERIALS]),
+        key="door_materials", num_rows="dynamic", use_container_width=True,
+        column_config={PRICE: st.column_config.NumberColumn(min_value=0),
+                       GLASS: st.column_config.CheckboxColumn()})
+    catalog = [{"name": str(r[NAME]).strip(), "color": r[COLOR] if isinstance(r[COLOR], str) and r[COLOR] else "#cccccc",
+                "price": float(r[PRICE]), "glass": bool(r[GLASS])}
+               for _, r in mats_df.dropna(subset=[NAME, PRICE]).iterrows() if str(r[NAME]).strip()]
 
 if "items" not in st.session_state:
     st.session_state["items"] = pd.DataFrame(
-        [[1, ROD, 1700, None], *[[2, SHELF, z, None] for z in even_shelves(H, t, 3)],
-         [2, DRAWER, t, 200], [2, DRAWER, t + 200, 200]],
-        columns=[COL, TYPE, Z, HEIGHT])
+        [[1, ROD, 1700, None, None], *[[2, SHELF, z, None, None] for z in even_shelves(H, t, 3)],
+         [2, DRAWER, t, 200, None], [2, DRAWER, t + 200, 200, None]],
+        columns=[COL, TYPE, Z, HEIGHT, MAT])
+if MAT not in st.session_state["items"].columns:
+    st.session_state["items"][MAT] = None
 
 left, right = st.columns([2, 3])
 with left:
@@ -51,23 +66,25 @@ with left:
             TYPE: st.column_config.SelectboxColumn(options=ITEM_TYPES, required=True),
             Z: st.column_config.NumberColumn(min_value=0, required=True),
             HEIGHT: st.column_config.NumberColumn(min_value=0, help="למגירה ודלת בלבד"),
+            MAT: st.column_config.SelectboxColumn(options=[m["name"] for m in catalog], help="לדלת בלבד"),
         })
 
     q1, q2, q3 = st.columns(3)
     q_col = q1.number_input("לעמודה", 1, n_cols, 1)
     q_n = q2.number_input("מספר מדפים", 1, 20, 4)
     if q3.button("הוסף מדפים במרווח שווה"):
-        new = pd.DataFrame([[q_col, SHELF, round(z, 1), None] for z in even_shelves(H, t, q_n)],
+        new = pd.DataFrame([[q_col, SHELF, round(z, 1), None, None] for z in even_shelves(H, t, q_n)],
                            columns=items_df.columns)
         st.session_state["items"] = pd.concat([items_df, new], ignore_index=True)
         del st.session_state["items_editor"]  # drop stale editor deltas so the new rows show
         st.rerun()
 
-items = [{"col": int(r[COL]), "type": r[TYPE], "z": float(r[Z]), "height": float(r[HEIGHT]) if pd.notna(r[HEIGHT]) else 0.0}
+items = [{"col": int(r[COL]), "type": r[TYPE], "z": float(r[Z]), "height": float(r[HEIGHT]) if pd.notna(r[HEIGHT]) else 0.0,
+          "door_material": r[MAT] if pd.notna(r[MAT]) else None}
          for _, r in items_df.dropna(subset=[COL, TYPE, Z]).iterrows()]
 
 try:
-    panels = build_panels(W, H, D, t, back_t, cols_df["רוחב"].tolist(), items)
+    panels = build_panels(W, H, D, t, back_t, cols_df["רוחב"].tolist(), items, catalog)
 except ValueError as e:
     right.error(str(e))
     st.stop()
@@ -76,15 +93,16 @@ with right:
     tab3d, tabcut = st.tabs(["תלת־ממד", "רשימת חיתוך ומחיר"])
     with tab3d:
         show_doors = st.toggle("הצג דלתות וחזיתות", True)
-        st.plotly_chart(figure(panels, show_doors), use_container_width=True)
+        st.plotly_chart(figure(panels, show_doors, catalog), use_container_width=True)
     with tabcut:
         cl = cut_list(panels)
         st.dataframe(cl, use_container_width=True, hide_index=True)
         st.download_button("הורד CSV", cl.to_csv(index=False).encode("utf-8-sig"),
                            "cut_list.csv", "text/csv")
-        pr = price(panels, p_board, p_back, p_rail, p_hinge)
-        m1, m2, m3 = st.columns(3)
+        pr = price(panels, p_board, p_back, p_rail, p_hinge, p_hinge_glass, catalog)
+        m1, m4, m2, m3 = st.columns(4)
         m1.metric("חומר", f"₪{pr['material']:,.0f}", f"{pr['board_m2']:.2f} מ\"ר לוח, {pr['back_m2']:.2f} מ\"ר גב",
                   delta_color="off")
+        m4.metric("דלתות", f"₪{pr['doors']:,.0f}")
         m2.metric("פרזול", f"₪{pr['hardware']:,.0f}")
         m3.metric("סה\"כ", f"₪{pr['total']:,.0f}")
