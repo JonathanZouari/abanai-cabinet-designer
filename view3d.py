@@ -16,9 +16,10 @@ TJ = [3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3]
 TK = [0, 7, 2, 3, 6, 7, 1, 1, 5, 5, 7, 6]
 
 
-def figure(panels, show_doors=True):
+def figure(panels, show_doors=True, carcass_color=None):
     fig = go.Figure()
-    for kind, color in COLORS.items():
+    colors = {**COLORS, "carcass": carcass_color or COLORS["carcass"]}
+    for kind, color in colors.items():
         group = [p for p in panels if p.kind == kind]
         if kind in ("door", "drawer_front") and not show_doors:
             continue
