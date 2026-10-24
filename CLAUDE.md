@@ -3,7 +3,8 @@
 אפליקציית Streamlit לעיצוב ארונות: תלת־ממד, עריכה ידנית, רשימת חיתוך והערכת מחיר.
 - הרצה: `streamlit run app.py`
 - בדיקות: `pytest test_cabinet.py`
-- קבצים: `cabinet.py` (לוגיקה טהורה), `view3d.py` (plotly 3D), `app.py` (ממשק RTL), `test_cabinet.py`
+- קבצים: `cabinet.py` (לוגיקה טהורה), `view3d.py` (plotly 3D), `app.py` (ממשק RTL), `front_view.py` / `front_view.js` / `front_view.css` (רכיב חזית לגרירה), `test_cabinet.py`, `test_app.py`
+- לשונית "חזית – הזזה ידנית": גרירה (נצמדת ל-5 מ"מ), חצים (1 מ"מ, Shift = 10) ו-Delete/× בדפדפן; כל אירוע מאומת מחדש ב-`cabinet.clamp_move` / `cabinet.apply_event` (דורש `streamlit>=1.66`)
 
 ## כללי עבודה (חובה)
 

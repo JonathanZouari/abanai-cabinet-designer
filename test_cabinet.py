@@ -1,7 +1,7 @@
 import pytest
 
-from cabinet import (DOOR, DRAWER, ROD, SHELF, build_panels, cut_list, default_col_widths,
-                     even_shelves, price)
+from cabinet import (DOOR, DRAWER, ROD, SHELF, apply_event, build_panels, clamp_move, cut_list,
+                     default_col_widths, even_shelves, price)
 
 W, H, D, T, B = 1000, 2000, 600, 18, 8
 
@@ -72,3 +72,90 @@ def test_even_shelves_equal_gaps():
     edges = [T] + [e for z in zs for e in (z, z + T)] + [H - T]
     gaps = [edges[i + 1] - edges[i] for i in range(0, len(edges), 2)]
     assert gaps == pytest.approx([gaps[0]] * 4)
+
+
+@pytest.mark.parametrize("args, expected", [
+    ((SHELF, 500.4, None, T, H, 2, 1.2), (1, 500)),        # snaps to 1 mm, col rounds
+    ((SHELF, -50, None, T, H, 2, 9), (2, T)),              # below floor panel, col clamped
+    ((SHELF, 5000, None, T, H, 2, 1), (1, H - 2 * T)),     # shelf top must stay <= H - t
+    ((ROD, 5000, None, T, H, 1, 1), (1, H - T - 25)),      # rod is 25 mm tall
+    ((DRAWER, 5000, 200, T, H, 1, 1), (1, H - T - 200)),
+    ((DOOR, 0, H - 2 * T, T, H, 1, 0), (1, T)),            # full-height door can only sit at t
+    ((DOOR, 500, 3000, T, H, 1, 1), (1, T)),               # taller than the cabinet: pinned to t
+])
+def test_clamp_move(args, expected):
+    assert clamp_move(*args) == expected
+
+
+@pytest.mark.parametrize("args", [
+    (SHELF, float("nan"), None, T, H, 2, 1),
+    (SHELF, float("inf"), None, T, H, 2, 1),
+    (SHELF, True, None, T, H, 2, 1),
+    (SHELF, "500", None, T, H, 2, 1),
+    (SHELF, 500, None, T, H, 2, None),
+    (SHELF, 500, None, T, H, 2, float("nan")),
+    (DRAWER, 500, None, T, H, 2, 1),                       # missing height
+    (DOOR, 500, 0, T, H, 2, 1),
+    (DRAWER, 500, float("nan"), T, H, 2, 1),
+    ("x", 500, 100, T, H, 2, 1),
+])
+def test_clamp_move_invalid(args):
+    assert clamp_move(*args) is None
+
+
+ROWS = [
+    {"col": 1, "type": SHELF, "z": 300, "height": None},
+    {"col": 2, "type": DRAWER, "z": T, "height": 200},
+    {"col": 2, "type": DOOR, "z": T, "height": 900},
+]
+
+
+def event(kind, payload):
+    return apply_event(ROWS, kind, payload, T, H, 2)
+
+
+def test_apply_move_changes_only_target_row():
+    out = event("move", {"index": 1, "col": 1, "z": 703.2})
+    assert out[1] == {"col": 1, "type": DRAWER, "z": 703, "height": 200}
+    assert out[0] == ROWS[0] and out[2] == ROWS[2]
+
+
+def test_apply_move_clamps_and_accepts_integer_float_index():
+    assert event("move", {"index": 2.0, "col": 5, "z": 9999})[2]["z"] == H - T - 900
+    assert event("move", {"index": 2.0, "col": 5, "z": 9999})[2]["col"] == 2
+
+
+def test_apply_delete_removes_row_and_keeps_order():
+    assert event("delete", {"index": 1}) == [ROWS[0], ROWS[2]]
+
+
+def test_apply_does_not_mutate_input():
+    before = [dict(r) for r in ROWS]
+    event("move", {"index": 0, "col": 2, "z": 100})
+    event("delete", {"index": 0})
+    assert ROWS == before
+
+
+@pytest.mark.parametrize("kind, payload", [
+    ("move", {"index": True, "col": 1, "z": 100}),
+    ("move", {"index": 1.5, "col": 1, "z": 100}),
+    ("move", {"index": 3, "col": 1, "z": 100}),
+    ("move", {"index": -1, "col": 1, "z": 100}),
+    ("move", {"index": "1", "col": 1, "z": 100}),
+    ("move", {"col": 1, "z": 100}),
+    ("move", {"index": 0, "col": 1, "z": float("nan")}),
+    ("move", {"index": 0, "col": 1, "z": "100"}),
+    ("delete", {"index": 9}),
+    ("delete", {"index": True}),
+    ("resize", {"index": 0}),
+    ("move", None),
+    ("move", [0, 1, 100]),
+])
+def test_apply_event_invalid_returns_none(kind, payload):
+    assert event(kind, payload) is None
+
+
+def test_apply_move_on_row_with_invalid_cells_is_ignored():
+    rows = [{"col": None, "type": DRAWER, "z": None, "height": None}]
+    assert apply_event(rows, "move", {"index": 0, "col": 1, "z": 100}, T, H, 2) is None
+    assert apply_event(rows, "delete", {"index": 0}, T, H, 2) == []

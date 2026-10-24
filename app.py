@@ -2,9 +2,10 @@
 import pandas as pd
 import streamlit as st
 
-from cabinet import (DRAWER, ITEM_TYPES, ROD, SHELF, build_panels, cut_list, default_col_widths,
+from cabinet import (DRAWER, ITEM_TYPES, ROD, SHELF, apply_event, build_panels, cut_list, default_col_widths,
                      even_shelves, price)
-from view3d import figure
+from front_view import front_view
+from view3d import COLORS, figure
 
 st.set_page_config(page_title="תכנון ארון", layout="wide")
 st.markdown("<style>.stApp, [data-testid='stSidebar'] {direction: rtl; text-align: right;}</style>",
@@ -73,7 +74,19 @@ except ValueError as e:
     st.stop()
 
 with right:
-    tab3d, tabcut = st.tabs(["תלת־ממד", "רשימת חיתוך ומחיר"])
+    tabfront, tab3d, tabcut = st.tabs(["חזית – הזזה ידנית", "תלת־ממד", "רשימת חיתוך ומחיר"])
+    with tabfront:
+        # ALL table rows (incl. invalid ones) so the event index is the row position
+        rows = [{"col": r[COL], "type": r[TYPE], "z": r[Z], "height": r[HEIGHT]}
+                for r in items_df.astype(object).where(items_df.notna(), None).to_dict("records")]
+        event = front_view(W, H, t, cols_df["רוחב"].tolist(), rows, COLORS)
+        if event:  # browser event (drag/delete): apply_event re-validates, invalid events are ignored
+            new_rows = apply_event(rows, event[0], event[1], t, H, n_cols)
+            if new_rows is not None:
+                st.session_state["items"] = pd.DataFrame(
+                    [[r["col"], r["type"], r["z"], r["height"]] for r in new_rows], columns=[COL, TYPE, Z, HEIGHT])
+                st.session_state.pop("items_editor", None)  # drop stale editor deltas so the new rows show
+                st.rerun()
     with tab3d:
         show_doors = st.toggle("הצג דלתות וחזיתות", True)
         st.plotly_chart(figure(panels, show_doors), use_container_width=True)

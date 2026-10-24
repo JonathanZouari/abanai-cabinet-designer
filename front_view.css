@@ -1,0 +1,39 @@
+.fv-root {
+  --paper: #FBF4E8; --ply: #F3E6CF; --walnut: #6B3F1F; --honey: #C8913F;
+  --graphite: #2B2622; --pencil: #DCCBAE; --warn: #B3261E;
+  direction: ltr; /* geometry must not mirror in RTL pages */
+  font-family: var(--st-font, sans-serif);
+  color: var(--graphite);
+}
+.fv-root svg {
+  display: block; width: 100%; height: auto; max-height: 640px;
+  background: var(--ply); border: 1px solid var(--pencil);
+  user-select: none; -webkit-user-select: none;
+}
+.fv-root text { font-size: 12px; fill: var(--graphite); }
+.fv-root .rule line { stroke: var(--walnut); stroke-width: 1; }
+.fv-root .rule text { text-anchor: end; dominant-baseline: middle; }
+.fv-root .dim { text-anchor: middle; fill: var(--walnut); }
+.fv-root .edge { stroke: var(--walnut); stroke-width: 1; }
+.fv-root .back { stroke: none; }
+.fv-root .item { cursor: grab; touch-action: none; outline: none; }
+.fv-root .item.drag { cursor: grabbing; }
+.fv-root .hit { fill: transparent; }
+.fv-root .body { stroke: var(--walnut); stroke-width: 1; }
+.fv-root .door .body { fill-opacity: 0.5; }
+.fv-root .handle { stroke: none; pointer-events: none; }
+.fv-root .item:focus-visible .body, .fv-root .item.sel .body { stroke: var(--honey); stroke-width: 2.5; }
+.fv-root .item.drag .body { fill: var(--honey); }
+.fv-root .item.clash .body { stroke: var(--warn); stroke-width: 2.5; }
+.fv-root .lab, .fv-root .del { display: none; }
+.fv-root .item.sel .lab, .fv-root .item.sel .del { display: block; }
+.fv-root .lab {
+  text-anchor: middle; font-weight: 600; pointer-events: none;
+  paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round;
+}
+.fv-root .item.clash .lab { fill: var(--warn); }
+.fv-root .del { cursor: pointer; }
+.fv-root .del circle { fill: var(--paper); stroke: var(--walnut); stroke-width: 1; }
+.fv-root .del text { text-anchor: middle; dominant-baseline: central; font-size: 12px; pointer-events: none; }
+.fv-root .del:hover circle { fill: var(--warn); }
+.fv-root .del:hover text { fill: #fff; }
