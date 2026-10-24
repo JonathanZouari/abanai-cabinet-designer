@@ -1,7 +1,7 @@
 import pytest
 
 from cabinet import (DOOR, DRAWER, ROD, SHELF, build_panels, cut_list, default_col_widths,
-                     even_shelves, price)
+                     even_shelves, price, quote, quote_html)
 
 W, H, D, T, B = 1000, 2000, 600, 18, 8
 
@@ -72,3 +72,21 @@ def test_even_shelves_equal_gaps():
     edges = [T] + [e for z in zs for e in (z, z + T)] + [H - T]
     gaps = [edges[i + 1] - edges[i] for i in range(0, len(edges), 2)]
     assert gaps == pytest.approx([gaps[0]] * 4)
+
+
+def test_quote():
+    q = quote({"material": 700, "hardware": 200}, 100, 30, 18)
+    assert q["cost"] == pytest.approx(1000)
+    assert q["margin"] == pytest.approx(300)
+    assert q["before_vat"] == pytest.approx(1300)
+    assert q["vat"] == pytest.approx(234)
+    assert q["total"] == pytest.approx(1534)
+
+
+def test_quote_html_escapes_and_has_total():
+    pr = {"material": 700, "hardware": 200}
+    q = quote(pr, 100, 30, 18)
+    out = quote_html("<script>alert(1)</script>", "01/01/2026", (W, H, D), cut_list(build()), pr, q)
+    assert "<script>" not in out
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in out
+    assert "₪1,534" in out
