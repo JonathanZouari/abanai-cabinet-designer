@@ -72,3 +72,34 @@ def test_even_shelves_equal_gaps():
     edges = [T] + [e for z in zs for e in (z, z + T)] + [H - T]
     gaps = [edges[i + 1] - edges[i] for i in range(0, len(edges), 2)]
     assert gaps == pytest.approx([gaps[0]] * 4)
+
+
+# ---- UI helpers and app smoke tests ----
+from pathlib import Path
+
+from streamlit.testing.v1 import AppTest
+
+from cabinet import format_dims, price_html
+
+
+def test_format_dims():
+    assert format_dims(1000, 600, 2000, 2) == "2 עמודות, \u2066100x60x200\u2069 ס\"מ"
+    assert format_dims(805, 600, 2000, 1).startswith("עמודה אחת, \u206680.5x")
+
+
+def test_price_html():
+    assert price_html(1234.4) == '<div class="price"><span class="cur">₪</span>1,234</div>'
+
+
+def _app():
+    return AppTest.from_file(str(Path(__file__).with_name("app.py"))).run(timeout=30)
+
+
+def test_app_loads_without_exception():
+    assert not _app().exception
+
+
+def test_app_shows_default_dims_and_price():
+    md = [m.value for m in _app().markdown]
+    assert any("100x60x200" in v for v in md)
+    assert any('class="price"' in v and "₪" in v and "—" not in v for v in md)

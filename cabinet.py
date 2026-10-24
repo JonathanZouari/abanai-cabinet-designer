@@ -133,3 +133,18 @@ def price(panels, price_m2_board, price_m2_back, drawer_rail, hinge_per_door):
                 + sum(p.kind == "door" for p in panels) * hinge_per_door)
     return {"board_m2": board_m2, "back_m2": back_m2, "material": material,
             "hardware": hardware, "total": material + hardware}
+
+
+def format_dims(width, depth, height, n_cols):
+    """Hebrew subtitle, e.g. '2 עמודות, 100x60x200 ס"מ' (dims mm->cm, wrapped in LRI/PDI for RTL)."""
+    def cm(v):
+        v = v / 10
+        return str(int(v)) if v == int(v) else f"{v:.1f}"
+    dims = f"\u2066{cm(width)}x{cm(depth)}x{cm(height)}\u2069"
+    cols = "עמודה אחת" if n_cols == 1 else f"{n_cols} עמודות"
+    return f"{cols}, {dims} ס\"מ"
+
+
+def price_html(total):
+    """Big-price HTML with small raised shekel sign. Only numbers are interpolated."""
+    return f'<div class="price"><span class="cur">₪</span>{float(total):,.0f}</div>'
