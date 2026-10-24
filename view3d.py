@@ -2,8 +2,8 @@
 import plotly.graph_objects as go
 
 COLORS = {
-    "carcass": "#c8a27a", "back": "#8b6b4a", "shelf": "#e0c097",
-    "drawer_front": "#6b8fb3", "drawer_box": "#b0c4d8", "door": "#9fb89a", "rod": "#555555",
+    "carcass": "#EDE6DA", "back": "#D9CCB8", "shelf": "#E3D5BE",
+    "drawer_front": "#F4F4F4", "drawer_box": "#CFC6B8", "door": "#FFFFFF", "rod": "#8A8A8A",
 }
 LABELS = {
     "carcass": "גוף", "back": "גב", "shelf": "מדפים", "drawer_front": "חזיתות מגירה",
@@ -33,11 +33,17 @@ def figure(panels, show_doors=True):
             j += [v + 8 * n for v in TJ]
             k += [v + 8 * n for v in TK]
         fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, color=color, flatshading=True,
-                                opacity=0.7 if kind == "door" else 1, name=LABELS[kind],
+                                opacity=0.85 if kind == "door" else 1,
+                                lighting=dict(ambient=0.6, diffuse=0.8, specular=0.1), name=LABELS[kind],
                                 showlegend=True, hoverinfo="name"))
+    ax = dict(showbackground=False, showgrid=True, gridcolor="#E4E4E4", zeroline=False, showline=False)
     fig.update_layout(
         scene=dict(aspectmode="data", xaxis_title="רוחב", yaxis_title="עומק", zaxis_title="גובה",
+                   xaxis=ax, yaxis=ax, zaxis=ax, bgcolor="#F5F5F5",
                    camera=dict(eye=dict(x=0.6, y=-1.8, z=0.6))),
+        paper_bgcolor="#F5F5F5", plot_bgcolor="#F5F5F5",
+        font=dict(family="Noto Sans Hebrew, sans-serif", color="#111111"),
+        legend=dict(orientation="h", yanchor="bottom", y=0, xanchor="center", x=0.5),
         margin=dict(l=0, r=0, t=0, b=0), height=650,
     )
     return fig
