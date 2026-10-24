@@ -1,9 +1,11 @@
 """Streamlit cabinet designer. Run: streamlit run app.py"""
+import datetime
+
 import pandas as pd
 import streamlit as st
 
 from cabinet import (DRAWER, ITEM_TYPES, ROD, SHELF, build_panels, cut_list, default_col_widths,
-                     even_shelves, price)
+                     even_shelves, price, quote, quote_html)
 from view3d import figure
 
 st.set_page_config(page_title="תכנון ארון", layout="wide")
@@ -26,6 +28,11 @@ with st.sidebar:
     p_back = st.number_input("גב למ\"ר", 0.0, value=40.0)
     p_rail = st.number_input("זוג מסילות למגירה", 0.0, value=60.0)
     p_hinge = st.number_input("צירים לדלת", 0.0, value=30.0)
+    st.header("הצעת מחיר")
+    customer = st.text_input("שם הלקוח")
+    labor = st.number_input("עבודה (₪)", 0.0, value=0.0)
+    margin_pct = st.number_input("רווח (%)", 0.0, value=30.0)
+    vat_pct = st.number_input("מע\"מ (%)", 0.0, value=18.0)
 
 if "items" not in st.session_state:
     st.session_state["items"] = pd.DataFrame(
@@ -88,3 +95,10 @@ with right:
                   delta_color="off")
         m2.metric("פרזול", f"₪{pr['hardware']:,.0f}")
         m3.metric("סה\"כ", f"₪{pr['total']:,.0f}")
+        q = quote(pr, labor, margin_pct, vat_pct)
+        m4, m5 = st.columns(2)
+        m4.metric("לפני מע\"מ", f"₪{q['before_vat']:,.0f}")
+        m5.metric("מחיר ללקוח", f"₪{q['total']:,.0f}")
+        st.download_button("הורד הצעת מחיר",
+                           quote_html(customer, datetime.date.today().strftime("%d/%m/%Y"), (W, H, D), cl, pr, q).encode("utf-8"),
+                           "quote.html", "text/html")

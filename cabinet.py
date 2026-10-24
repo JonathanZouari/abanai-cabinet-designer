@@ -3,6 +3,7 @@
 Axes (mm): x = width (left->right), y = depth (front=0 -> back), z = height (floor=0).
 """
 from dataclasses import dataclass
+import html
 import math
 
 import pandas as pd
@@ -133,3 +134,40 @@ def price(panels, price_m2_board, price_m2_back, drawer_rail, hinge_per_door):
                 + sum(p.kind == "door" for p in panels) * hinge_per_door)
     return {"board_m2": board_m2, "back_m2": back_m2, "material": material,
             "hardware": hardware, "total": material + hardware}
+
+
+def quote(pr, labor, margin_pct, vat_pct):
+    cost = pr["material"] + pr["hardware"] + labor
+    margin = cost * margin_pct / 100
+    before_vat = cost + margin
+    vat = before_vat * vat_pct / 100
+    return {"cost": cost, "labor": labor, "margin": margin, "before_vat": before_vat,
+            "vat": vat, "total": before_vat + vat}
+
+
+def quote_html(customer, date_str, dims, cut_df, pr, q):
+    e = html.escape
+    th = "".join(f"<th>{e(str(c))}</th>" for c in cut_df.columns)
+    rows = "".join("<tr>" + "".join(f"<td>{e(str(v))}</td>" for v in r) + "</tr>"
+                   for r in cut_df.itertuples(index=False))
+    lines = [("חומר", pr["material"]), ("פרזול", pr["hardware"]), ("עבודה", q["labor"]),
+             ("רווח", q["margin"]), ('לפני מע"מ', q["before_vat"]), ('מע"מ', q["vat"]),
+             ("סה\"כ לתשלום", q["total"])]
+    prices = "".join(f"<tr><td>{e(n)}</td><td>₪{v:,.0f}</td></tr>" for n, v in lines)
+    W, H, D = dims
+    return f"""<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head><meta charset="utf-8"><title>הצעת מחיר</title>
+<style>body{{font-family:Arial,sans-serif;margin:2em}}table{{border-collapse:collapse;margin:1em 0}}
+th,td{{border:1px solid #888;padding:4px 10px;text-align:right}}th{{background:#eee}}
+@media print{{body{{margin:0}}}}</style></head>
+<body>
+<h1>הצעת מחיר</h1>
+<p>לקוח: {e(customer)}<br>תאריך: {e(date_str)}</p>
+<p>מידות ארון (מ"מ): {W:.0f} × {H:.0f} × {D:.0f}</p>
+<h2>רשימת חיתוך</h2>
+<table><tr>{th}</tr>{rows}</table>
+<h2>מחיר</h2>
+<table>{prices}</table>
+</body></html>
+"""
