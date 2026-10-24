@@ -133,3 +133,57 @@ def price(panels, price_m2_board, price_m2_back, drawer_rail, hinge_per_door):
                 + sum(p.kind == "door" for p in panels) * hinge_per_door)
     return {"board_m2": board_m2, "back_m2": back_m2, "material": material,
             "hardware": hardware, "total": material + hardware}
+
+
+def _num(v):
+    """Finite number (not bool/NaN/inf) or None. Browser events are untrusted input."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+        return None
+    return float(v)
+
+
+def clamp_move(typ, z, height, t, H, n_cols, col):
+    """Validate a drag target: returns (col, z) inside the cabinet, z rounded to 1 mm; None if invalid.
+
+    Bounds match _validate: z >= t and z + item height <= H - t.
+    """
+    z, col = _num(z), _num(col)
+    if typ == SHELF:
+        h = t
+    elif typ == ROD:
+        h = ROD_SIZE
+    elif typ in (DRAWER, DOOR):
+        h = _num(height)
+        if h is None or h <= 0:
+            return None
+    else:
+        return None
+    if z is None or col is None:
+        return None
+    return min(max(round(col), 1), n_cols), min(max(round(z), t), max(t, H - t - h))
+
+
+def apply_event(items, kind, payload, t, H, n_cols):
+    """Apply a "move"/"delete" browser event to ALL table rows (dicts {col, type, z, height}).
+
+    Returns a new list, or None if the event is invalid. The input is not mutated.
+    """
+    if not isinstance(payload, dict):
+        return None
+    idx = payload.get("index")
+    if isinstance(idx, float) and idx.is_integer():
+        idx = int(idx)
+    if isinstance(idx, bool) or not isinstance(idx, int) or not 0 <= idx < len(items):
+        return None
+    new = [dict(i) for i in items]
+    if kind == "delete":
+        del new[idx]
+        return new
+    if kind == "move":
+        it = new[idx]
+        moved = clamp_move(it["type"], payload.get("z"), it["height"], t, H, n_cols, payload.get("col"))
+        if moved is None:
+            return None
+        it["col"], it["z"] = moved
+        return new
+    return None
