@@ -72,3 +72,27 @@ def test_even_shelves_equal_gaps():
     edges = [T] + [e for z in zs for e in (z, z + T)] + [H - T]
     gaps = [edges[i + 1] - edges[i] for i in range(0, len(edges), 2)]
     assert gaps == pytest.approx([gaps[0]] * 4)
+
+
+def test_app_loads():
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file("app.py", default_timeout=30).run()
+    assert not at.exception
+    assert "₪964" in [m.value for m in at.metric]
+
+
+def test_figure_has_dimension_labels():
+    import view3d
+    panels = build(n_cols=2)
+    fig = view3d.figure(panels)
+    text = " ".join(next(t for t in fig.data if t.type == "scatter3d").text)
+    assert all(s in text for s in ("1000", "2000", "600"))
+    names = {t.name for t in view3d.figure(panels, show_doors=False).data}
+    assert view3d.LABELS["door"] not in names and view3d.LABELS["drawer_front"] not in names
+
+
+def test_app_error_path():
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file("app.py", default_timeout=30).run()
+    at.sidebar.number_input[1].set_value(300).run()  # height 300: rod at 1700 is out of bounds
+    assert not at.exception and at.error
